@@ -1,0 +1,675 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Chainline Scorebook</title>
+<meta name="theme-color" content="#133224">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Scorebook">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png"><link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..900&family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: sticky scoreboard header with tabs; content column up to 1180px; scoring view splits into hole card + leaderboard rail. */
+:root{
+  --bg:#EEF2EC; --surface:#FFFFFF; --sunken:#E3E9E1; --ink:#14251C; --muted:#5A6B60; --line:#D3DBD0;
+  --pine:#1D4A36; --pine-ink:#FFFFFF; --sun:#F2B705; --sun-ink:#1B1A10;
+  --ace:#C99400; --eagle:#6A45C8; --birdie:#108062; --bogey:#C9701E; --dbl:#C23B33;
+  --good:#108062; --bad:#C23B33;
+  --display:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0D1511; --surface:#16211B; --sunken:#1C2922; --ink:#E4ECE5; --muted:#93A398; --line:#2A3A31;
+  --pine:#5FB08A; --pine-ink:#0B1611; --sun:#F2C14E; --sun-ink:#1B1A10;
+  --ace:#F2C14E; --eagle:#A88BF0; --birdie:#4FC79F; --bogey:#F0A05A; --dbl:#F07A70;
+  --good:#4FC79F; --bad:#F07A70; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0D1511; --surface:#16211B; --sunken:#1C2922; --ink:#E4ECE5; --muted:#93A398; --line:#2A3A31;
+  --pine:#5FB08A; --pine-ink:#0B1611; --sun:#F2C14E; --sun-ink:#1B1A10;
+  --ace:#F2C14E; --eagle:#A88BF0; --birdie:#4FC79F; --bogey:#F0A05A; --dbl:#F07A70;
+  --good:#4FC79F; --bad:#F07A70; color-scheme:dark}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+img{max-width:100%}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--body);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 48px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+h1,h2,h3{font-family:var(--display);font-stretch:78%;text-wrap:balance;margin:0;line-height:1.05}
+h2{font-size:1.6rem;font-weight:850}
+h3{font-size:1.1rem;font-weight:800}
+.wrap{max-width:1180px;margin:0 auto}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--sun);outline-offset:2px}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.small{font-size:.85rem}
+.eyebrow{font-family:var(--display);font-stretch:90%;font-weight:700;text-transform:uppercase;letter-spacing:.12em;font-size:.72rem;color:var(--muted)}
+
+/* header */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line);margin-bottom:22px}
+.top .wrap{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding-block:12px}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto;text-decoration:none;color:inherit}
+.brand b{font-family:var(--display);font-stretch:70%;font-weight:900;font-size:1.45rem;letter-spacing:.01em;text-transform:uppercase}
+.brand svg{flex:none}
+.tabs{display:flex;gap:4px;background:var(--sunken);padding:4px;border-radius:999px}
+.tabs a{padding:7px 14px;border-radius:999px;text-decoration:none;color:var(--muted);font-weight:600;font-size:.9rem}
+.tabs a[aria-current="page"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.sync{font-size:.75rem;display:flex;align-items:center;gap:6px;color:var(--muted)}
+.sync i{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block}
+.sync.shared i{background:var(--good)} .sync.local i{background:var(--sun)}
+
+/* generic */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+.stack{display:flex;flex-direction:column;gap:14px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.split{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:20px;align-items:start}
+@media (max-width:900px){.split{grid-template-columns:minmax(0,1fr)}}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:9px 14px;font-weight:600;cursor:pointer;text-decoration:none;color:var(--ink);min-height:40px}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--pine);border-color:var(--pine);color:var(--pine-ink)}
+.btn.sun{background:var(--sun);border-color:var(--sun);color:var(--sun-ink)}
+.btn.danger{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 40%,var(--line))}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:var(--surface);padding:8px 14px;font-weight:600;cursor:pointer;color:var(--muted);min-height:40px}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--pine);color:var(--pine-ink)}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:.82rem;font-weight:600;color:var(--muted);min-width:0}
+input[type=text],input[type=number],input[type=date],input[type=search],select,textarea{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 11px;min-height:40px;width:100%;color:var(--ink);font-weight:500}
+textarea{min-height:110px;font-family:var(--mono);font-size:.85rem}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-weight:600;font-size:.82rem;cursor:pointer;color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.pill.live{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
+.pill.final{background:var(--sunken);color:var(--muted)}
+.confirm{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:color-mix(in srgb,var(--sun) 18%,var(--surface));border:1px solid color-mix(in srgb,var(--sun) 50%,var(--line));padding:12px 14px;border-radius:var(--r)}
+.empty{padding:26px;text-align:center;color:var(--muted);border:1.5px dashed var(--line);border-radius:var(--r)}
+.note{font-size:.82rem;color:var(--muted);max-width:65ch}
+.banner{font-size:.85rem;padding:10px 14px;border-radius:var(--r);background:color-mix(in srgb,var(--sun) 16%,var(--surface));border:1px solid color-mix(in srgb,var(--sun) 40%,var(--line));margin-bottom:16px}
+
+/* hole marker, styled after course-map tee signs */
+.hn{--c:#1FA463;display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--c);color:#fff;font:800 .85rem/1 var(--display);border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.18);flex:none}
+.hn.lg{width:52px;height:52px;font-size:1.4rem;border-width:3px}
+
+/* hole strip */
+.holes{display:flex;gap:6px;overflow-x:auto;padding:4px 2px 8px;scrollbar-width:thin}
+.holes button{flex:none;display:flex;flex-direction:column;align-items:center;gap:2px;border:1px solid transparent;background:none;border-radius:10px;padding:5px 4px;cursor:pointer;min-width:44px}
+.holes button[aria-current="true"]{background:var(--surface);border-color:var(--line)}
+.holes button small{font-size:.66rem;color:var(--muted);font-weight:600}
+.holes button.done .hn{opacity:.55}
+
+/* hole header */
+.holehead{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.holehead .stat{display:flex;flex-direction:column}
+.holehead .stat b{font:850 1.9rem/1 var(--display);font-stretch:75%}
+.holehead .stat span{font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:700}
+
+/* player score rows */
+.prows{display:flex;flex-direction:column}
+.prow{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.prow:first-child{border-top:0}
+.pname{min-width:0}
+.pname b{display:block;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pname small{color:var(--muted);font-size:.78rem}
+.ptot{text-align:right;min-width:56px}
+.ptot b{font:700 1.05rem/1 var(--mono)}
+.ptot small{display:block;color:var(--muted);font-size:.72rem}
+.step{display:flex;align-items:center;gap:6px}
+.step .pm{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--surface);font-size:1.4rem;font-weight:600;cursor:pointer;line-height:1;color:var(--ink)}
+.step .pm:active{background:var(--sunken)}
+
+/* scorecard shapes: birdie circles, bogey squares */
+.sc{--sc:var(--ink);display:inline-grid;place-items:center;width:46px;height:46px;font:700 1.25rem/1 var(--mono);color:var(--sc);background:none;border:2px solid transparent;cursor:pointer;border-radius:6px}
+.sc.none{color:var(--muted);border:2px dashed var(--line)}
+.sc.birdie{--sc:var(--birdie);border-color:var(--birdie);border-radius:50%}
+.sc.eagle{--sc:var(--eagle);border-color:var(--eagle);border-radius:50%;box-shadow:0 0 0 3px var(--surface),0 0 0 5px var(--eagle)}
+.sc.ace{--sc:var(--sun-ink);background:var(--ace);border-color:var(--ace);border-radius:50%}
+.sc.bogey{--sc:var(--bogey);border-color:var(--bogey)}
+.sc.dbl{--sc:var(--dbl);border-color:var(--dbl);box-shadow:0 0 0 3px var(--surface),0 0 0 5px var(--dbl)}
+.cell{display:inline-grid;place-items:center;width:28px;height:28px;font:600 .82rem/1 var(--mono);border:1.5px solid transparent;border-radius:4px}
+.cell.birdie{color:var(--birdie);border-color:var(--birdie);border-radius:50%}
+.cell.eagle{color:var(--eagle);border-color:var(--eagle);border-radius:50%;border-width:3px;border-style:double}
+.cell.ace{background:var(--ace);color:var(--sun-ink);border-radius:50%}
+.cell.bogey{color:var(--bogey);border-color:var(--bogey)}
+.cell.dbl{color:var(--dbl);border-color:var(--dbl);border-width:3px;border-style:double}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.78rem;color:var(--muted);align-items:center}
+.legend span{display:inline-flex;gap:6px;align-items:center}
+
+/* leaderboard */
+.lb{width:100%;border-collapse:collapse}
+.lb th{font-size:.68rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);text-align:right;padding:6px 6px;font-weight:700}
+.lb th:nth-child(2),.lb td:nth-child(2){text-align:left}
+.lb td{padding:8px 6px;border-top:1px solid var(--line);text-align:right;font-variant-numeric:tabular-nums}
+.lb td.pos{font:600 .85rem var(--mono);color:var(--muted);width:36px;text-align:left}
+.lb td.nm{font-weight:600;max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%}
+.lb tr.lead td{background:color-mix(in srgb,var(--sun) 14%,transparent)}
+.tp{font:700 .95rem var(--mono)}
+.tp.under{color:var(--good)} .tp.over{color:var(--bad)}
+
+/* full grid */
+.gridwrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+table.card{border-collapse:separate;border-spacing:0;font-size:.85rem;min-width:100%}
+table.card th,table.card td{padding:5px 4px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap}
+table.card th{font-size:.7rem;color:var(--muted);font-weight:700;background:var(--sunken)}
+table.card .stick{position:sticky;left:0;background:var(--surface);text-align:left;padding-left:12px;padding-right:12px;z-index:1;max-width:160px;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+table.card th.stick{background:var(--sunken)}
+table.card td.tot{font:700 .9rem var(--mono);padding-inline:10px}
+table.card tr.parrow td{color:var(--muted);font-size:.75rem;background:var(--sunken)}
+
+/* lists */
+.list{display:flex;flex-direction:column;gap:10px}
+.item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px}
+.item h3{overflow-wrap:anywhere}
+.meta{display:flex;gap:14px;flex-wrap:wrap;font-size:.83rem;color:var(--muted)}
+.meta b{color:var(--ink);font-weight:600}
+
+/* course editor */
+.holegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.holecell{display:flex;flex-direction:column;gap:8px;border:1px solid var(--line);border-radius:var(--r);padding:10px;background:var(--surface)}
+.parstep{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.parstep button{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--surface);cursor:pointer;font-size:1.1rem;color:var(--ink)}
+.parstep b{font:700 1rem var(--mono)}
+
+/* roster table */
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+table.roster{width:100%;border-collapse:collapse;font-size:.9rem}
+table.roster th{text-align:left;font-size:.68rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);padding:10px 12px;background:var(--sunken);font-weight:700;white-space:nowrap}
+table.roster td{padding:9px 12px;border-top:1px solid var(--line);white-space:nowrap}
+table.roster td input{min-width:80px}
+table.roster td.acts{text-align:right}
+
+/* setup picker */
+.picklist{max-height:360px;overflow:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+.pick{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 12px;border-top:1px solid var(--line);cursor:pointer}
+.pick:first-child{border-top:0}
+.pick input{width:20px;height:20px;accent-color:var(--pine)}
+.pick span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+
+/* share card */
+.share{display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);gap:22px;align-items:start}
+@media (max-width:820px){.share{grid-template-columns:minmax(0,1fr)}}
+.share img{width:100%;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.22);display:block}
+
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;font-size:.88rem;z-index:20;max-width:calc(100% - 32px)}
+@media (prefers-reduced-motion:no-preference){.sc,.step .pm{transition:transform .08s} .sc:active{transform:scale(.92)}}
+</style>
+
+</head><body>
+<header class="top"><div class="wrap">
+  <a class="brand" href="#play" aria-label="Chainline Scorebook home">
+    <svg width="30" height="34" viewBox="0 0 30 34" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 6h24M6 6l2 11M10 6l1.5 11M15 6v11M20 6l-1.5 11M24 6l-2 11"/><path d="M5 17h20l-2.5 6h-15z"/><path d="M15 23v9M10 32h10"/></g><circle cx="15" cy="3.2" r="2" fill="var(--sun)"/></svg>
+    <b>Chainline Scorebook</b>
+  </a>
+  <nav class="tabs" id="tabs">
+    <a href="#play">Play</a><a href="#rounds">Rounds</a><a href="#courses">Courses</a><a href="#players">Players</a>
+  </nav>
+  <span class="sync local" id="sync"><i></i><span>Saved on this phone</span></span>
+</div></header>
+<main class="wrap" id="app"></main>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const MAXP=100, ALLOW=0.8, PPS=10;
+const HOLE_COLORS=['#1FA463','#E3A400','#E5399B','#222222','#E23B2E','#1E88E5','#13A07A','#F07C1F','#7E3FD8'];
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+const isNum=v=>v!==''&&v!=null&&!isNaN(+v);
+const sum=a=>a.reduce((s,v)=>s+(+v||0),0);
+const today=()=>{const d=new Date();return new Date(d-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
+const fmtDate=s=>{if(!s)return '';const d=new Date(s+'T12:00:00');return isNaN(d)?s:d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})};
+const fmtPar=n=>{if(n==null||isNaN(n))return '–';n=Math.round(n);return n===0?'E':(n>0?'+'+n:'−'+Math.abs(n))};
+const tpClass=n=>n<0?'under':n>0?'over':'';
+const holeChip=(n,lg)=>`<span class="hn${lg?' lg':''}" style="--c:${HOLE_COLORS[(n-1)%9]}">${n}</span>`;
+function merge(a,b){const o={...(a||{})};for(const k in b){const v=b[k];const obj=v&&typeof v==='object'&&!Array.isArray(v);o[k]=obj?merge(o[k]&&typeof o[k]==='object'&&!Array.isArray(o[k])?o[k]:{},v):v}return o}
+function clone(o){return JSON.parse(JSON.stringify(o))}
+
+const S={courses:[],players:[],rounds:[],mode:'connecting',readOnly:false,view:'play',roundId:null,hole:0,card:'all',div:'all',lb:null,grid:false,confirm:null,draft:null,courseDraft:null,playerEdit:null,newPlayer:null,bulk:'',addName:''};
+
+/* ---------- storage: shared db when available, this device otherwise ---------- */
+const SEED_COURSE={name:'John W. Clark Park',location:'Esto, FL',holes:9,pars:[3,3,4,3,3,4,3,3,3],dists:[332,225,480,312,323,440,260,250,247],notes:'Pond in the middle; holes 8 and 9 cross Second Ave.'};
+const Local={key:'chainline.v1',data:null,subs:{},
+  load(){try{this.data=JSON.parse(localStorage.getItem(this.key))}catch(e){}
+    if(!this.data){this.data={courses:{},players:{},rounds:{}};this.data.courses['clark-park']={...SEED_COURSE,createdAt:Date.now()};this.save()}},
+  save(){try{localStorage.setItem(this.key,JSON.stringify(this.data))}catch(e){}},
+  list(c){return Object.entries(this.data[c]).map(([id,d])=>({id,...clone(d)}))},
+  emit(c){(this.subs[c]||[]).forEach(cb=>cb(this.list(c)))},
+  watch(c,cb){(this.subs[c]||(this.subs[c]=[])).push(cb);cb(this.list(c))},
+  async set(c,id,d){this.data[c][id]=clone(d);this.save();this.emit(c)},
+  async update(c,id,p){if(!this.data[c][id])return;this.data[c][id]=merge(this.data[c][id],p);this.save();this.emit(c)},
+  async del(c,id){delete this.data[c][id];this.save();this.emit(c)}};
+let B=null;
+const Q={};
+function queueUpdate(c,id,patch){const k=c+'/'+id;const q=Q[k]||(Q[k]={c,id,pending:null,busy:false});q.pending=merge(q.pending||{},patch);pump(q)}
+async function pump(q){if(q.busy)return;q.busy=true;while(q.pending){const p=q.pending;q.pending=null;try{await B.update(q.c,q.id,p)}catch(e){writeFailed(e)}}q.busy=false}
+function withPending(c,list){return list.map(d=>{const q=Q[c+'/'+d.id];return q&&q.pending?merge(d,q.pending):d})}
+async function save(c,id,d){try{await B.set(c,id,d);return true}catch(e){writeFailed(e);return false}}
+async function remove(c,id){try{await B.del(c,id)}catch(e){writeFailed(e)}}
+function writeFailed(e){toast('That change didn’t save. Your phone may be out of storage space.')}
+
+let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,3200)}
+
+/* ---------- scoring math ---------- */
+function scoreClass(v,par){if(!v)return 'none';if(v===1)return 'ace';const d=v-par;return d<=-2?'eagle':d===-1?'birdie':d===0?'par':d===1?'bogey':'dbl'}
+function hcpPer18(p,r){
+  if(isNum(p.hcp))return +p.hcp;
+  if(isNum(p.rating)){const rs=r.players.filter(x=>isNum(x.rating)&&!isNum(x.hcp)).map(x=>+x.rating);const ref=Math.max(...rs);return Math.max(0,(ref-p.rating)/PPS*ALLOW)}
+  return 0}
+const hcpStrokes=(p,r)=>Math.round(hcpPer18(p,r)*r.holes/18);
+function calc(r){
+  const pars=r.pars;const n=r.holes;
+  const rows=r.players.map(p=>{const sc=(r.scores||{})[p.id]||{};let gross=0,parP=0,thru=0;const t={ace:0,eagle:0,birdie:0,par:0,bogey:0,dbl:0};const holes=[];
+    for(let i=0;i<n;i++){const v=+sc['h'+(i+1)]||0;holes.push(v||null);if(v){gross+=v;parP+=pars[i];thru++;t[scoreClass(v,pars[i])]++}}
+    const hs=hcpStrokes(p,r);const toPar=gross-parP;const net=toPar-Math.round(hs*thru/n);
+    return {p,gross,thru,toPar,net,hs,t,holes}});
+  return rows}
+function ranked(r,mode){
+  const key=mode==='net'?'net':'toPar';
+  const rows=calc(r).sort((a,b)=>(b.thru>0)-(a.thru>0)||a[key]-b[key]||b.thru-a.thru||a.p.name.localeCompare(b.p.name));
+  let pos=0,prev=null;rows.forEach((x,i)=>{if(!x.thru){x.pos='';return}if(prev===null||x[key]!==prev){pos=i+1;prev=x[key]}x.pos=pos});
+  const counts={};rows.forEach(x=>{if(x.pos)counts[x.pos]=(counts[x.pos]||0)+1});rows.forEach(x=>x.posLabel=x.pos?(counts[x.pos]>1?'T'+x.pos:String(x.pos)):'–');
+  return rows}
+function lbMode(r){return S.lb||(r.net?'net':'gross')}
+function superlatives(r){
+  const rows=calc(r);const out=[];
+  const aces=[];rows.forEach(x=>x.holes.forEach((v,i)=>{if(v===1)aces.push(`${x.p.name} · hole ${i+1}`)}));
+  if(aces.length)out.push({label:'Ace club',value:aces[0].split(' · ')[0],sub:aces.length>1?`+${aces.length-1} more ace${aces.length>2?'s':''}`:aces[0].split(' · ')[1]});
+  const bird=rows.map(x=>({x,b:x.t.birdie+x.t.eagle})).sort((a,b)=>b.b-a.b)[0];
+  if(bird&&bird.b>0)out.push({label:'Birdie machine',value:bird.x.p.name,sub:`${bird.b} under-par hole${bird.b>1?'s':''}`});
+  let tough=null;for(let i=0;i<r.holes;i++){const vs=rows.map(x=>x.holes[i]).filter(Boolean);if(!vs.length)continue;const avg=sum(vs)/vs.length-r.pars[i];if(!tough||avg>tough.avg)tough={i,avg}}
+  if(tough&&tough.avg>0)out.push({label:'Toughest hole',value:`Hole ${tough.i+1}`,sub:`avg ${tough.avg>=0?'+':'−'}${Math.abs(tough.avg).toFixed(2)} vs par ${r.pars[tough.i]}`});
+  if(out.length<3){const st=rows.map(x=>({x,p:x.t.par})).sort((a,b)=>b.p-a.p)[0];if(st&&st.p>0)out.push({label:'Steady hands',value:st.x.p.name,sub:`${st.p} pars`})}
+  return out.slice(0,3)}
+
+/* ---------- routing ---------- */
+function route(){const h=location.hash.slice(1);
+  if(h.startsWith('round-')){if(S.roundId!==h.slice(6)){S.hole=0;S.card='all';S.div='all';S.lb=null;S.grid=false}S.view='round';S.roundId=h.slice(6)}
+  else S.view=['play','rounds','courses','players'].includes(h)?h:'play';
+  S.confirm=null;render();window.scrollTo(0,0)}
+window.addEventListener('hashchange',route);
+
+/* ---------- render ---------- */
+let pendingRender=false;
+function scheduleRender(){const a=document.activeElement;if(a&&a.closest&&a.closest('#app')&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&a.type!=='checkbox'){pendingRender=true;return}render()}
+document.addEventListener('focusout',()=>setTimeout(()=>{if(pendingRender){pendingRender=false;render()}},0));
+
+function render(){
+  document.querySelectorAll('#tabs a').forEach(a=>{const v=a.getAttribute('href').slice(1);a.setAttribute('aria-current',(S.view===v||(S.view==='round'&&v==='play'))?'page':'false')});
+  const app=$('#app');
+  if(S.mode==='connecting'){app.innerHTML=`<div class="empty">Opening your scorebook…</div>`;return}
+  const banner='';
+  const v={play:viewPlay,round:viewRound,rounds:viewRounds,courses:viewCourses,players:viewPlayers}[S.view];
+  app.innerHTML=banner+v()+(S.view==='rounds'?backupPanel():'');
+  if(S.view==='round'){const cur=document.querySelector('.holes [aria-current="true"]');if(cur)cur.scrollIntoView({block:'nearest',inline:'center'})}
+  if(S.view==='round'){const r=curRound();if(r&&r.status==='final')paintShare(r)}
+}
+const curRound=()=>S.rounds.find(r=>r.id===S.roundId);
+const courseById=id=>S.courses.find(c=>c.id===id);
+const sortedPlayers=()=>[...S.players].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+
+/* Play: live rounds + new round setup */
+function ensureDraft(){
+  const c=[...S.courses].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0))[0];
+  if(!S.draft)S.draft={courseId:'',holes:18,side:'front',name:'',date:today(),net:true,cardSize:4,picked:[],q:''};
+  // courses can arrive after the form is first drawn; point a blank or deleted selection at the default course
+  if(c&&!courseById(S.draft.courseId)){S.draft.courseId=c.id;S.draft.holes=c.holes}
+  return S.draft}
+function viewPlay(){
+  const live=S.rounds.filter(r=>r.status==='live').sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  const d=ensureDraft();const c=courseById(d.courseId);
+  const liveHtml=live.length?`<section class="stack"><span class="eyebrow">On the course now</span><div class="list">${live.map(r=>{const rows=ranked(r,r.net?'net':'gross');const done=rows.filter(x=>x.thru===r.holes).length;
+    return `<div class="item"><div class="stack" style="gap:4px"><div class="row"><span class="pill live">Live</span><h3>${esc(r.name||r.courseName)}</h3></div>
+    <div class="meta"><span>${esc(r.courseName)}</span><span>${r.holes} holes · par <b>${sum(r.pars)}</b></span><span><b>${r.players.length}</b> players</span><span>${done} finished</span>${rows[0]&&rows[0].thru?`<span>Leader <b>${esc(rows[0].p.name)}</b> ${fmtPar(rows[0][r.net?'net':'toPar'])}</span>`:''}</div></div>
+    <a class="btn primary" href="#round-${r.id}">Keep scoring</a></div>`}).join('')}</div></section>`:'';
+  if(!S.courses.length)return liveHtml+`<div class="empty stack" style="align-items:center"><h2>Add a course to start</h2><p class="note">Set up the course once with each basket’s par and distance. Every round you play there reuses it.</p><a class="btn primary" href="#courses" data-act="course-new">Add a course</a></div>`;
+  const opts=S.courses.map(x=>`<option value="${x.id}"${x.id===d.courseId?' selected':''}>${esc(x.name)} (${x.holes})</option>`).join('');
+  const lay=c?layout(c,d.holes,d.side):null;
+  return `<div class="stack" style="gap:26px">${liveHtml}
+  <section class="panel stack">
+    <div class="row" style="justify-content:space-between"><h2>Start a round</h2>${lay?`<span class="meta"><span>Par <b>${sum(lay.pars)}</b></span><span><b>${sum(lay.dists).toLocaleString()}</b> ft</span></span>`:''}</div>
+    <div class="grid2">
+      <label class="f">Course<select id="d-course" data-act="d-course">${opts}</select></label>
+      <label class="f">Event or round name<input type="text" id="d-name" data-bind="draft.name" value="${esc(d.name)}" placeholder="Saturday doubles, Fall Classic R1…"></label>
+      <label class="f">Date<input type="date" id="d-date" data-bind="draft.date" value="${esc(d.date)}"></label>
+      <label class="f">Players per card<input type="number" id="d-card" min="1" max="6" data-bind="draft.cardSize" value="${d.cardSize}"></label>
+    </div>
+    <div class="row" style="gap:18px">
+      <div class="stack" style="gap:6px"><span class="eyebrow">Baskets</span><div class="seg"><button data-act="d-holes" data-v="9" aria-pressed="${d.holes==9}">9 holes</button><button data-act="d-holes" data-v="18" aria-pressed="${d.holes==18}">18 holes</button></div></div>
+      ${c&&c.holes==18&&d.holes==9?`<div class="stack" style="gap:6px"><span class="eyebrow">Which nine</span><div class="seg"><button data-act="d-side" data-v="front" aria-pressed="${d.side==='front'}">Front 1–9</button><button data-act="d-side" data-v="back" aria-pressed="${d.side==='back'}">Back 10–18</button></div></div>`:''}
+      <div class="stack" style="gap:6px"><span class="eyebrow">Scoring</span><div class="seg"><button data-act="d-net" data-v="0" aria-pressed="${!d.net}">Gross only</button><button data-act="d-net" data-v="1" aria-pressed="${d.net}">Gross + handicap net</button></div></div>
+    </div>
+    ${c&&c.holes==9&&d.holes==18?`<p class="note">${esc(c.name)} has 9 baskets, so an 18-hole round plays the layout twice (holes 10–18 repeat 1–9).</p>`:''}
+    ${lay?`<div class="holes" aria-label="Hole pars">${lay.pars.map((p,i)=>`<button tabindex="-1" style="cursor:default">${holeChip(i+1)}<small>Par ${p}</small></button>`).join('')}</div>`:''}
+    <div class="stack" style="gap:8px">
+      <div class="row" style="justify-content:space-between"><span class="eyebrow">Players · <span id="pickcount">${d.picked.length}</span> of ${MAXP} max</span>
+        <span class="row" style="gap:6px"><button class="btn ghost small" data-act="pick-all">Select shown</button><button class="btn ghost small" data-act="pick-none">Clear</button></span></div>
+      <input type="search" id="d-q" placeholder="Search players" value="${esc(d.q)}" data-act="d-q" aria-label="Search players">
+      <div class="picklist" id="picklist">${pickList()}</div>
+      <div class="row"><input type="text" id="d-add" placeholder="New player name" value="${esc(S.addName)}" data-bind="addName" style="flex:1;min-width:160px"><button class="btn" data-act="d-addplayer">Add player</button></div>
+      <details><summary class="small" style="cursor:pointer;font-weight:600">Paste a tournament list</summary>
+        <div class="stack" style="margin-top:10px;gap:8px"><p class="note">One player per line: <span class="num">Name, PDGA rating, handicap, PDGA #, division</span>. Everything after the name is optional.</p>
+        <textarea id="d-bulk" data-bind="bulk" placeholder="Paige Pierce, 1005, , 29190, FPO&#10;Sam Rivera, 912&#10;Lewis Goodman, , 4">${esc(S.bulk)}</textarea>
+        <div><button class="btn" data-act="bulk-add">Add and select these players</button></div></div></details>
+    </div>
+    <div class="row"><button class="btn primary" data-act="start-round" ${!d.picked.length||S.readOnly?'disabled':''}>Tee off with ${d.picked.length||'no'} player${d.picked.length===1?'':'s'}</button>
+    ${d.picked.length>MAXP?`<span class="small" style="color:var(--bad)">Rounds hold up to ${MAXP} players.</span>`:''}</div>
+  </section></div>`}
+function pickList(){
+  const d=S.draft;const q=(d.q||'').toLowerCase();const ps=sortedPlayers().filter(p=>!q||(p.name||'').toLowerCase().includes(q));
+  if(!S.players.length)return `<div class="empty" style="border:0">No players yet. Add names below or paste a list.</div>`;
+  if(!ps.length)return `<div class="empty" style="border:0">No players match “${esc(d.q)}”.</div>`;
+  return ps.map(p=>`<label class="pick"><input type="checkbox" data-act="pick" data-id="${p.id}" ${d.picked.includes(p.id)?'checked':''}><span>${esc(p.name)}</span><small class="muted">${[p.div,isNum(p.rating)?p.rating+' rated':'',isNum(p.hcp)?'hcp '+p.hcp:''].filter(Boolean).join(' · ')}</small></label>`).join('')}
+function layout(c,holes,side){
+  holes=+holes;let pars=c.pars.slice(0,c.holes),dists=(c.dists||[]).slice(0,c.holes);
+  if(holes===9&&c.holes===18){const o=side==='back'?9:0;pars=pars.slice(o,o+9);dists=dists.slice(o,o+9)}
+  else if(holes===18&&c.holes===9){pars=pars.concat(pars);dists=dists.concat(dists)}
+  return {pars:pars.map(Number),dists:dists.map(v=>isNum(v)?+v:null)}}
+
+/* Round: live scoring or final results */
+function viewRound(){
+  const r=curRound();
+  if(!r)return `<div class="empty stack" style="align-items:center"><h2>Round not found</h2><p class="note">It may have been deleted.</p><a class="btn" href="#rounds">See all rounds</a></div>`;
+  return r.status==='final'?viewResults(r):viewLive(r)}
+function viewLive(r){
+  const i=Math.min(S.hole,r.holes-1);const par=r.pars[i];const dist=r.dists&&r.dists[i];
+  const rows=calc(r);const byId=Object.fromEntries(rows.map(x=>[x.p.id,x]));
+  const cards=[...new Set(r.players.map(p=>p.card))].sort((a,b)=>a-b);
+  const shown=r.players.filter(p=>S.card==='all'||p.card==S.card);
+  const holeDone=k=>r.players.every(p=>(r.scores?.[p.id]||{})['h'+(k+1)]);
+  const missing=rows.reduce((s,x)=>s+(r.holes-x.thru),0);
+  return `<div class="stack" style="gap:18px">
+  <div class="row" style="justify-content:space-between;align-items:flex-end">
+    <div class="stack" style="gap:4px"><div class="row"><span class="pill live">Live</span><span class="eyebrow">${fmtDate(r.date)}</span></div><h2>${esc(r.name||r.courseName)}</h2>${r.name?`<span class="muted small">${esc(r.courseName)}</span>`:''}</div>
+    <div class="row"><button class="btn" data-act="toggle-grid">${S.grid?'Hole by hole':'Full scorecard'}</button><button class="btn sun" data-act="finish-ask" ${S.readOnly?'disabled':''}>Finish round</button></div>
+  </div>
+  ${S.confirm==='finish'?`<div class="confirm"><span>${missing?`<b>${missing}</b> hole score${missing>1?'s are':' is'} still blank. They’ll count as not played.`:'All scores are in.'} Finish and build the share card?</span><button class="btn primary" data-act="finish">Finish round</button><button class="btn ghost" data-act="cancel-confirm">Keep scoring</button></div>`:''}
+  <div class="holes" role="tablist" aria-label="Holes">${r.pars.map((p,k)=>`<button role="tab" data-act="hole" data-i="${k}" aria-current="${k===i}" class="${holeDone(k)?'done':''}">${holeChip(k+1)}<small>Par ${p}</small></button>`).join('')}</div>
+  <div class="split">
+    <section class="stack">
+    ${S.grid?gridTable(r,true):`
+      <div class="panel stack">
+        <div class="holehead">${holeChip(i+1,true)}
+          <div class="stat"><b>${par}</b><span>Par</span></div>
+          ${dist?`<div class="stat"><b class="num" style="font-family:var(--display)">${dist}</b><span>Feet</span></div>`:''}
+          <div class="row" style="margin-left:auto;gap:6px"><button class="btn" data-act="hole" data-i="${i-1}" ${i===0?'disabled':''} aria-label="Previous hole">← Prev</button><button class="btn primary" data-act="hole" data-i="${i+1}" ${i===r.holes-1?'disabled':''}>Next hole →</button></div>
+        </div>
+        ${cards.length>1?`<div class="row" style="gap:6px"><span class="eyebrow">Card</span><button class="chip" data-act="card" data-v="all" aria-pressed="${S.card==='all'}">All ${r.players.length}</button>${cards.map(cd=>`<button class="chip" data-act="card" data-v="${cd}" aria-pressed="${S.card==cd}">Card ${cd}</button>`).join('')}</div>`:''}
+        <div class="prows">${shown.map(p=>{const x=byId[p.id];const v=+((r.scores?.[p.id]||{})['h'+(i+1)])||0;const cls=scoreClass(v,par);
+          return `<div class="prow"><div class="pname"><b>${esc(p.name)}</b><small>${[cards.length>1?'Card '+p.card:'',p.div,r.net&&x.hs?`${x.hs} stroke${x.hs>1?'s':''}`:''].filter(Boolean).join(' · ')||'&nbsp;'}</small></div>
+          <div class="ptot"><b class="tp ${tpClass(x.toPar)}">${x.thru?fmtPar(x.toPar):'–'}</b><small>${x.thru?`thru ${x.thru}`:'not started'}</small></div>
+          <div class="step"><button class="pm" data-act="dec" data-p="${p.id}" aria-label="One less throw for ${esc(p.name)}" ${S.readOnly?'disabled':''}>−</button>
+          <button class="sc ${cls}" data-act="tap" data-p="${p.id}" aria-label="${esc(p.name)} score on hole ${i+1}: ${v||'blank, tap for par'}" ${S.readOnly?'disabled':''}>${v||par}</button>
+          <button class="pm" data-act="inc" data-p="${p.id}" aria-label="One more throw for ${esc(p.name)}" ${S.readOnly?'disabled':''}>+</button></div></div>`}).join('')}</div>
+        <div class="row" style="justify-content:space-between"><span class="note">A dashed box is blank; tap it to record par. Press − at 1 to clear.</span><button class="btn ghost small" data-act="fill-par" ${S.readOnly?'disabled':''}>Give blanks par</button></div>
+      </div>`}
+      <div class="legend">${['ace','eagle','birdie','bogey','dbl'].map(k=>`<span><i class="cell ${k}">${{ace:1,eagle:2,birdie:2,bogey:4,dbl:5}[k]}</i>${{ace:'Ace',eagle:'Eagle',birdie:'Birdie',bogey:'Bogey',dbl:'Double+'}[k]}</span>`).join('')}</div>
+      <details><summary class="small" style="cursor:pointer;font-weight:600">Add a late player</summary><div class="row" style="margin-top:10px"><input type="text" id="r-add" placeholder="Player name" data-bind="addName" value="${esc(S.addName)}" style="flex:1;min-width:160px"><button class="btn" data-act="round-add">Add to round</button></div></details>
+    </section>
+    <aside class="panel stack">${leaderboard(r)}</aside>
+  </div></div>`}
+function leaderboard(r,limit){
+  const mode=lbMode(r);let rows=ranked(r,mode);
+  const divs=[...new Set(r.players.map(p=>p.div).filter(Boolean))].sort();
+  if(S.div!=='all')rows=rows.filter(x=>x.p.div===S.div);
+  return `<div class="row" style="justify-content:space-between"><h3>Leaderboard</h3>${r.net?`<div class="seg"><button data-act="lb" data-v="gross" aria-pressed="${mode==='gross'}">Gross</button><button data-act="lb" data-v="net" aria-pressed="${mode==='net'}">Net</button></div>`:''}</div>
+  ${divs.length>1?`<div class="row" style="gap:6px"><button class="chip" data-act="div" data-v="all" aria-pressed="${S.div==='all'}">All</button>${divs.map(dv=>`<button class="chip" data-act="div" data-v="${esc(dv)}" aria-pressed="${S.div===dv}">${esc(dv)}</button>`).join('')}</div>`:''}
+  <div style="overflow-x:auto"><table class="lb"><thead><tr><th style="text-align:left">Pos</th><th>Player</th><th>Thru</th><th>Strokes</th><th>${mode==='net'?'Net':'To par'}</th></tr></thead><tbody>
+  ${rows.slice(0,limit||rows.length).map(x=>{const val=mode==='net'?x.net:x.toPar;return `<tr class="${x.pos===1?'lead':''}"><td class="pos">${x.posLabel}</td><td class="nm" title="${esc(x.p.name)}">${esc(x.p.name)}</td><td class="num">${x.thru===r.holes?'F':x.thru||'–'}</td><td class="num">${x.thru?x.gross:'–'}</td><td><span class="tp ${tpClass(val)}">${x.thru?fmtPar(val):'–'}</span></td></tr>`}).join('')}
+  </tbody></table></div>
+  ${r.net&&mode==='net'?`<p class="note">Net subtracts handicap strokes, prorated by holes played. Handicaps without a set number are estimated from PDGA rating: ${PPS} rating points per throw, ${ALLOW*100}% allowance, against the field’s top rating.</p>`:''}`}
+function gridTable(r,clickable){
+  const rows=ranked(r,lbMode(r));const half=r.holes===18;
+  const cols=r.pars.map((p,k)=>k);
+  const head=`<tr><th class="stick">Hole</th>${cols.map(k=>`<th>${clickable?`<button data-act="hole-grid" data-i="${k}" style="all:unset;cursor:pointer">${holeChip(k+1)}</button>`:holeChip(k+1)}</th>${half&&k===8?'<th>Out</th>':''}`).join('')}<th>${half?'In':''}</th><th>Tot</th><th>±</th></tr>
+  <tr class="parrow"><td class="stick">Par</td>${cols.map(k=>`<td class="num">${r.pars[k]}</td>${half&&k===8?`<td class="num">${sum(r.pars.slice(0,9))}</td>`:''}`).join('')}<td class="num">${half?sum(r.pars.slice(9)):''}</td><td class="num">${sum(r.pars)}</td><td></td></tr>`;
+  const body=rows.map(x=>`<tr><td class="stick" title="${esc(x.p.name)}">${esc(x.p.name)}</td>${cols.map(k=>{const v=x.holes[k];return `<td><span class="cell ${scoreClass(v,r.pars[k])}">${v||'·'}</span></td>${half&&k===8?`<td class="tot">${sum(x.holes.slice(0,9))||'–'}</td>`:''}`}).join('')}<td class="tot">${half?sum(x.holes.slice(9))||'–':''}</td><td class="tot">${x.gross||'–'}</td><td class="tot"><span class="tp ${tpClass(x.toPar)}">${x.thru?fmtPar(x.toPar):'–'}</span></td></tr>`).join('');
+  return `<div class="gridwrap"><table class="card"><thead>${head}</thead><tbody>${body}</tbody></table></div>`}
+function viewResults(r){
+  const sup=superlatives(r);
+  return `<div class="stack" style="gap:22px">
+  <div class="row" style="justify-content:space-between;align-items:flex-end">
+    <div class="stack" style="gap:4px"><div class="row"><span class="pill final">Final</span><span class="eyebrow">${fmtDate(r.date)}</span></div><h2>${esc(r.name||r.courseName)}</h2><span class="muted small">${esc(r.courseName)} · ${r.holes} holes · par ${sum(r.pars)} · ${r.players.length} players</span></div>
+    <div class="row"><button class="btn" data-act="reopen" ${S.readOnly?'disabled':''}>Reopen scoring</button></div>
+  </div>
+  <section class="share">
+    <div class="stack"><img id="shareimg" alt="Share card for ${esc(r.name||r.courseName)}: final standings and highlights"><div class="row"><button class="btn primary" data-act="save-png" id="savebtn">Share image</button><button class="btn" data-act="copy-results">Copy results text</button></div><p class="note" id="sharenote">Share opens your phone’s share sheet: send it to the group chat, post it, or Save Image to Photos. You can also press and hold the picture.</p></div>
+    <div class="stack">
+      ${sup.length?`<div class="grid2">${sup.map(s=>`<div class="panel stack" style="gap:2px"><span class="eyebrow">${esc(s.label)}</span><b style="font:850 1.35rem/1.1 var(--display);font-stretch:78%">${esc(s.value)}</b><span class="small muted">${esc(s.sub)}</span></div>`).join('')}</div>`:''}
+      <div class="panel stack">${leaderboard(r)}</div>
+    </div>
+  </section>
+  <section class="stack"><h3>Scorecard</h3>${gridTable(r,false)}<div class="legend">${['ace','eagle','birdie','bogey','dbl'].map(k=>`<span><i class="cell ${k}">${{ace:1,eagle:2,birdie:2,bogey:4,dbl:5}[k]}</i>${{ace:'Ace',eagle:'Eagle',birdie:'Birdie',bogey:'Bogey',dbl:'Double+'}[k]}</span>`).join('')}</div></section>
+  </div>`}
+
+/* Rounds log */
+function viewRounds(){
+  const rs=[...S.rounds].sort((a,b)=>(a.status==='live'?0:1)-(b.status==='live'?0:1)||(b.date||'').localeCompare(a.date||'')||(b.createdAt||0)-(a.createdAt||0));
+  if(!rs.length)return `<div class="stack"><h2>Rounds</h2><div class="empty">No rounds yet. Every round you start from <a href="#play">Play</a> is logged here with its scorecard.</div></div>`;
+  return `<div class="stack"><div class="row" style="justify-content:space-between"><h2>Rounds</h2><span class="muted small">${rs.length} logged</span></div><div class="list">${rs.map(r=>{
+    const m=r.net?'net':'gross';const top=ranked(r,m)[0];
+    return `<div class="item"><div class="stack" style="gap:4px"><div class="row"><span class="pill ${r.status}">${r.status==='live'?'Live':'Final'}</span><h3>${esc(r.name||r.courseName)}</h3></div>
+    <div class="meta"><span>${fmtDate(r.date)}</span><span>${esc(r.courseName)}</span><span>${r.holes} holes · par <b>${sum(r.pars)}</b></span><span><b>${r.players.length}</b> players</span>${top&&top.thru?`<span>${r.status==='final'?'Winner':'Leader'} <b>${esc(top.p.name)}</b> ${top.gross} (${fmtPar(top[m==='net'?'net':'toPar'])})</span>`:''}</div>
+    ${S.confirm==='del-round:'+r.id?`<div class="confirm" style="margin-top:8px"><span>Delete this round and all its scores?</span><button class="btn danger" data-act="del-round" data-id="${r.id}">Delete round</button><button class="btn ghost" data-act="cancel-confirm">Cancel</button></div>`:''}</div>
+    <div class="row"><a class="btn ${r.status==='live'?'primary':''}" href="#round-${r.id}">${r.status==='live'?'Keep scoring':'Scorecard'}</a><button class="btn ghost" data-act="ask" data-v="del-round:${r.id}" aria-label="Delete round" ${S.readOnly?'disabled':''}>Delete</button></div></div>`}).join('')}</div></div>`}
+
+/* Courses */
+function courseStats(c){
+  const rs=S.rounds.filter(r=>r.courseId===c.id);const fin=rs.filter(r=>r.status==='final');let best=null;
+  fin.forEach(r=>calc(r).forEach(x=>{if(x.thru===r.holes&&(!best||x.toPar<best.toPar))best={toPar:x.toPar,gross:x.gross,name:x.p.name,holes:r.holes}}));
+  const last=rs.map(r=>r.date).sort().pop();return {count:rs.length,best,last}}
+function viewCourses(){
+  if(S.courseDraft)return courseEditor();
+  const cs=[...S.courses].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  return `<div class="stack"><div class="row" style="justify-content:space-between"><h2>Courses</h2><button class="btn primary" data-act="course-new" ${S.readOnly?'disabled':''}>Add course</button></div>
+  ${cs.length?`<div class="list">${cs.map(c=>{const st=courseStats(c);return `<div class="item"><div class="stack" style="gap:6px"><h3>${esc(c.name)}</h3>
+    <div class="meta">${c.location?`<span>${esc(c.location)}</span>`:''}<span><b>${c.holes}</b> baskets</span><span>Par <b>${sum(c.pars.slice(0,c.holes))}</b></span>${sum((c.dists||[]).slice(0,c.holes))?`<span><b>${sum(c.dists.slice(0,c.holes)).toLocaleString()}</b> ft</span>`:''}<span><b>${st.count}</b> round${st.count===1?'':'s'}</span>${st.last?`<span>Last played ${fmtDate(st.last)}</span>`:''}${st.best?`<span>Best <b>${esc(st.best.name)}</b> ${st.best.gross} (${fmtPar(st.best.toPar)}, ${st.best.holes} holes)</span>`:''}</div>
+    <div class="holes" style="padding:0">${c.pars.slice(0,c.holes).map((p,k)=>`<span style="display:flex;flex-direction:column;align-items:center;gap:2px;min-width:38px">${holeChip(k+1)}<small class="muted" style="font-size:.66rem;font-weight:600">${p}${c.dists&&isNum(c.dists[k])?` · ${c.dists[k]}′`:''}</small></span>`).join('')}</div>
+    ${c.notes?`<p class="note" style="margin:0">${esc(c.notes)}</p>`:''}
+    ${S.confirm==='del-course:'+c.id?`<div class="confirm"><span>Delete this course? Rounds already played keep their scorecards.</span><button class="btn danger" data-act="course-del" data-id="${c.id}">Delete course</button><button class="btn ghost" data-act="cancel-confirm">Cancel</button></div>`:''}</div>
+    <div class="row"><button class="btn" data-act="course-edit" data-id="${c.id}" ${S.readOnly?'disabled':''}>Edit</button><button class="btn ghost" data-act="ask" data-v="del-course:${c.id}" ${S.readOnly?'disabled':''}>Delete</button></div></div>`}).join('')}</div>`
+    :`<div class="empty">No courses yet. Add one with each hole’s par and distance.</div>`}</div>`}
+function courseEditor(){
+  const c=S.courseDraft;
+  return `<div class="stack"><div class="row" style="justify-content:space-between"><h2>${c.id?'Edit course':'New course'}</h2><span class="meta"><span>Par <b>${sum(c.pars.slice(0,c.holes))}</b></span><span><b>${sum(c.dists.slice(0,c.holes)).toLocaleString()}</b> ft</span></span></div>
+  <div class="panel stack">
+    <div class="grid2"><label class="f">Course name<input type="text" id="c-name" data-bind="courseDraft.name" value="${esc(c.name)}" placeholder="John W. Clark Park"></label>
+    <label class="f">Location<input type="text" id="c-loc" data-bind="courseDraft.location" value="${esc(c.location)}" placeholder="Esto, FL"></label></div>
+    <div class="stack" style="gap:6px"><span class="eyebrow">Baskets</span><div class="seg"><button data-act="c-holes" data-v="9" aria-pressed="${c.holes==9}">9</button><button data-act="c-holes" data-v="18" aria-pressed="${c.holes==18}">18</button></div></div>
+    <div class="holegrid">${Array.from({length:c.holes},(_,k)=>`<div class="holecell"><div class="row" style="justify-content:space-between">${holeChip(k+1)}<span class="eyebrow">Par</span></div>
+      <div class="parstep"><button data-act="c-par" data-i="${k}" data-d="-1" aria-label="Lower par on hole ${k+1}">−</button><b>${c.pars[k]}</b><button data-act="c-par" data-i="${k}" data-d="1" aria-label="Raise par on hole ${k+1}">+</button></div>
+      <label class="f">Distance (ft)<input type="number" inputmode="numeric" id="c-d${k}" data-bind="courseDraft.dists.${k}" value="${esc(c.dists[k]??'')}" placeholder="—"></label></div>`).join('')}</div>
+    <label class="f">Notes<input type="text" id="c-notes" data-bind="courseDraft.notes" value="${esc(c.notes)}" placeholder="Water on 5, drop zone on 7…"></label>
+    <div class="row"><button class="btn primary" data-act="course-save">Save course</button><button class="btn ghost" data-act="course-cancel">Cancel</button></div>
+  </div></div>`}
+
+/* Players */
+function playerHistory(p){
+  return S.rounds.filter(r=>r.status==='final'&&r.players.some(x=>x.id===p.id)).map(r=>{const x=calc(r).find(y=>y.p.id===p.id);return x&&x.thru===r.holes?{date:r.date||'',per18:x.toPar*18/r.holes,gross:x.gross,holes:r.holes,c:r.createdAt||0}:null}).filter(Boolean).sort((a,b)=>b.date.localeCompare(a.date)||b.c-a.c)}
+function autoHcp(p){const h=playerHistory(p).slice(0,3);if(!h.length)return null;return Math.max(0,Math.round(sum(h.map(x=>x.per18))/h.length*ALLOW*10)/10)}
+function viewPlayers(){
+  const ps=sortedPlayers();const e=S.playerEdit;const n=S.newPlayer;
+  const editRow=(d,isNew)=>`<tr><td><input type="text" id="pe-name" data-bind="${isNew?'newPlayer':'playerEdit'}.name" value="${esc(d.name)}" placeholder="Name"></td><td><input type="text" id="pe-pdga" data-bind="${isNew?'newPlayer':'playerEdit'}.pdga" value="${esc(d.pdga)}" placeholder="PDGA #"></td><td><input type="number" id="pe-rating" data-bind="${isNew?'newPlayer':'playerEdit'}.rating" value="${esc(d.rating)}" placeholder="e.g. 915"></td><td><input type="text" id="pe-div" data-bind="${isNew?'newPlayer':'playerEdit'}.div" value="${esc(d.div)}" placeholder="MA3"></td><td><input type="number" step="0.1" id="pe-hcp" data-bind="${isNew?'newPlayer':'playerEdit'}.hcp" value="${esc(d.hcp)}" placeholder="strokes/18"></td><td colspan="2" class="acts"><button class="btn primary" data-act="player-save" data-v="${isNew?'new':'edit'}">Save</button> <button class="btn ghost" data-act="player-cancel">Cancel</button></td></tr>`;
+  return `<div class="stack"><div class="row" style="justify-content:space-between"><h2>Players</h2><div class="row"><button class="btn" data-act="auto-all" ${S.readOnly||!ps.length?'disabled':''}>Update handicaps from scores</button><button class="btn primary" data-act="player-new" ${S.readOnly?'disabled':''}>Add player</button></div></div>
+  <p class="note">Handicap is strokes per 18 holes and is prorated for 9-hole rounds. “Update handicaps from scores” sets it to 80% of each player’s average over par across their last 3 finished rounds. Leave it blank to estimate it from PDGA rating instead.</p>
+  ${ps.length||n?`<div class="tablewrap"><table class="roster"><thead><tr><th>Name</th><th>PDGA #</th><th>Rating</th><th>Division</th><th>Handicap</th><th>Rounds · avg/18</th><th></th></tr></thead><tbody>
+  ${n?editRow(n,true):''}
+  ${ps.map(p=>{if(e&&e.id===p.id)return editRow(e,false);const h=playerHistory(p);const avg=h.length?sum(h.map(x=>x.per18))/h.length:null;const a=autoHcp(p);
+    return `<tr><td><b>${esc(p.name)}</b></td><td class="num">${esc(p.pdga)||'<span class="muted">—</span>'}</td><td class="num">${isNum(p.rating)?p.rating:'<span class="muted">—</span>'}</td><td>${esc(p.div)||'<span class="muted">—</span>'}</td><td class="num">${isNum(p.hcp)?p.hcp:'<span class="muted">—</span>'}${a!=null&&+p.hcp!==a?` <button class="btn ghost small" data-act="auto-one" data-id="${p.id}" title="80% of avg over par, last 3 rounds">use ${a}</button>`:''}</td><td class="num">${h.length} · ${avg==null?'—':fmtPar(avg)}</td>
+    <td class="acts">${S.confirm==='del-player:'+p.id?`<button class="btn danger" data-act="player-del" data-id="${p.id}">Confirm delete</button> <button class="btn ghost" data-act="cancel-confirm">Cancel</button>`:`<button class="btn" data-act="player-edit" data-id="${p.id}" ${S.readOnly?'disabled':''}>Edit</button> <button class="btn ghost" data-act="ask" data-v="del-player:${p.id}" ${S.readOnly?'disabled':''}>Delete</button>`}</td></tr>`}).join('')}
+  </tbody></table></div>`:`<div class="empty">No players yet. Add your regulars here, or add them when you start a round.</div>`}
+  </div>`}
+
+/* ---------- share card (canvas, 1080×1350 portrait) ---------- */
+let shareCanvas=null;
+async function paintShare(r){
+  try{await Promise.all(['900 80px Archivo','700 30px Archivo','600 30px Figtree','600 30px "IBM Plex Mono"'].map(f=>document.fonts.load(f)))}catch(e){}
+  const c=drawCard(r);shareCanvas=c;const img=$('#shareimg');if(img)img.src=c.toDataURL('image/png')}
+function drawCard(r){
+  const mode=r.net?'net':'gross';const rows=ranked(r,mode).filter(y=>y.thru);const key=mode==='net'?'net':'toPar';const sup=superlatives(r);const maxRows=sup.length?8:11;const nShow=Math.min(rows.length,maxRows);
+  const tEnd=300+328+nShow*62+(rows.length>maxRows?40:0);const supY=tEnd+30;const W=1080,H=Math.max(1080,(sup.length?supY+150:tEnd)+100),c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');
+  const PINE='#133224',CREAM='#F3F6EF',SUN='#F2B705',MIST='#B9CEC1',GOOD='#7BDDAE',BAD='#FFB089';
+  const ls=v=>{try{x.letterSpacing=v}catch(e){}};
+  const rr=(X,Y,w,h,rad)=>{x.beginPath();if(x.roundRect)x.roundRect(X,Y,w,h,rad);else x.rect(X,Y,w,h)};
+  const fit=(t,max,font)=>{x.font=font;t=String(t);if(x.measureText(t).width<=max)return t;while(t.length>1&&x.measureText(t+'…').width>max)t=t.slice(0,-1);return t+'…'};
+  const fitSize=(t,max,w,base,min)=>{let s=base;do{x.font=`${w} ${s}px Archivo`;if(x.measureText(t).width<=max)break;s-=4}while(s>min);return s};
+  x.fillStyle=PINE;x.fillRect(0,0,W,H);
+  // chain rings and a basket silhouette
+  x.strokeStyle='rgba(242,183,5,.10)';x.lineWidth=3;for(let k=0;k<10;k++){x.beginPath();x.arc(W-70,120,50+k*36,0,Math.PI*2);x.stroke()}
+  x.strokeStyle='rgba(243,246,239,.22)';x.lineWidth=5;x.lineCap='round';const bx=W-150,by=70;
+  x.beginPath();x.moveTo(bx,by);x.lineTo(bx+110,by);for(let k=0;k<6;k++){x.moveTo(bx+8+k*19,by);x.lineTo(bx+20+k*14,by+60)}x.moveTo(bx+5,by+60);x.lineTo(bx+105,by+60);x.lineTo(bx+92,by+90);x.lineTo(bx+18,by+90);x.closePath();x.moveTo(bx+55,by+90);x.lineTo(bx+55,by+150);x.stroke();
+  // header
+  ls('6px');x.fillStyle=SUN;x.font='700 26px Archivo';x.fillText('FINAL SCORECARD',72,104);ls('0px');
+  const title=r.name||r.courseName;x.fillStyle=CREAM;const ts=fitSize(title,860,900,92,52);x.font=`900 ${ts}px Archivo`;x.fillText(fit(title,860,x.font),72,104+ts+6);
+  const sub=[r.name?r.courseName:'',fmtDate(r.date),`${r.holes} baskets · par ${sum(r.pars)}`].filter(Boolean).join('  ·  ');
+  x.fillStyle=MIST;x.font='600 30px Figtree';x.fillText(fit(sub,936,x.font),72,104+ts+58);
+  // winner panel
+  const py=300;rr(60,py,960,250,24);x.fillStyle=CREAM;x.fill();
+  const lead=rows.filter(y=>y.pos===1);
+  ls('5px');x.fillStyle='#4A5E52';x.font='700 24px Archivo';x.fillText(lead.length>1?'TIED FOR THE WIN':'WINNER',100,py+58);ls('0px');
+  if(lead.length){const nm=lead.map(y=>y.p.name).join(' & ');const ns=fitSize(nm,600,900,96,44);x.fillStyle=PINE;x.font=`900 ${ns}px Archivo`;x.fillText(fit(nm,600,x.font),96,py+70+ns);
+    x.fillStyle='#4A5E52';x.font='600 28px Figtree';const w=lead[0];x.fillText(`${w.gross} throws${r.net?`  ·  ${w.hs} hcp strokes`:''}${w.t.birdie+w.t.eagle?`  ·  ${w.t.birdie+w.t.eagle} birdie${w.t.birdie+w.t.eagle>1?'s':''}`:''}`,100,py+212);
+    // big to-par disc
+    const cx=890,cy=py+125;x.beginPath();x.arc(cx,cy,92,0,Math.PI*2);x.fillStyle=SUN;x.fill();x.lineWidth=6;x.strokeStyle=PINE;x.beginPath();x.arc(cx,cy,76,0,Math.PI*2);x.stroke();
+    x.fillStyle=PINE;x.textAlign='center';x.font='900 64px Archivo';x.fillText(fmtPar(w[key]),cx,cy+20);x.font='700 18px Archivo';ls('3px');x.fillText(mode==='net'?'NET':'TO PAR',cx,cy+50);ls('0px');x.textAlign='left'}
+  else{x.fillStyle=PINE;x.font='900 64px Archivo';x.fillText('No scores yet',96,py+160)}
+  // standings
+  let y=py+310;
+  ls('4px');x.fillStyle=MIST;x.font='700 20px Archivo';x.fillText('POS',72,y);x.fillText('PLAYER',160,y);x.textAlign='right';x.fillText('THROWS',800,y);x.fillText(mode==='net'?'NET':'TO PAR',1008,y);x.textAlign='left';ls('0px');
+  y+=18;rows.slice(0,maxRows).forEach((row,k)=>{const top=y+k*62;if(k%2===0){x.fillStyle='rgba(243,246,239,.05)';x.fillRect(56,top,968,58)}
+    const mid=top+40;x.fillStyle=row.pos===1?SUN:MIST;x.font='600 28px "IBM Plex Mono"';x.fillText(row.posLabel,72,mid);
+    x.fillStyle=CREAM;x.fillText('',0,0);x.font='700 32px Figtree';x.fillText(fit(row.p.name,520,x.font),160,mid);
+    x.textAlign='right';x.fillStyle=MIST;x.font='600 28px "IBM Plex Mono"';x.fillText(String(row.gross)+(row.thru<r.holes?'*':''),800,mid);
+    const v=row[key];x.fillStyle=v<0?GOOD:v>0?BAD:CREAM;x.font='700 32px "IBM Plex Mono"';x.fillText(fmtPar(v),1008,mid);x.textAlign='left'});
+  const shownN=Math.min(rows.length,maxRows);let fy=y+shownN*62+34;
+  if(rows.length>maxRows){x.fillStyle=MIST;x.font='600 24px Figtree';x.fillText(`+ ${rows.length-maxRows} more player${rows.length-maxRows>1?'s':''}`,160,fy-6)}
+  // superlatives
+  if(sup.length){const ty=supY,tw=(960-2*20)/3;sup.forEach((s,k)=>{const tx=60+k*(tw+20);rr(tx,ty,tw,150,18);x.fillStyle='rgba(243,246,239,.08)';x.fill();x.strokeStyle='rgba(242,183,5,.5)';x.lineWidth=2;x.stroke();
+    ls('3px');x.fillStyle=SUN;x.font='700 19px Archivo';x.fillText(s.label.toUpperCase(),tx+24,ty+42);ls('0px');
+    x.fillStyle=CREAM;const vs=fitSize(s.value,tw-48,800,40,24);x.font=`800 ${vs}px Archivo`;x.fillText(fit(s.value,tw-48,x.font),tx+24,ty+92);
+    x.fillStyle=MIST;x.font='500 22px Figtree';x.fillText(fit(s.sub,tw-48,x.font),tx+24,ty+128)})}
+  // footer
+  x.fillStyle=MIST;x.font='600 22px Figtree';x.fillText(`${r.players.length} player${r.players.length>1?'s':''}${rows.some(z=>z.thru<r.holes)?'  ·  * did not finish':''}`,72,H-40);
+  x.textAlign='right';ls('4px');x.fillStyle=SUN;x.font='800 22px Archivo';x.fillText('CHAINLINE SCOREBOOK',1008,H-40);ls('0px');x.textAlign='left';
+  return c}
+function resultsText(r){
+  const mode=r.net?'net':'gross';const rows=ranked(r,mode).filter(y=>y.thru);
+  return [`${r.name||r.courseName} · ${fmtDate(r.date)}`,`${r.courseName} · ${r.holes} holes · par ${sum(r.pars)}`,'',
+    ...rows.map(y=>`${y.posLabel}. ${y.p.name}  ${y.gross} (${fmtPar(y.toPar)})${r.net?`  net ${fmtPar(y.net)}`:''}${y.thru<r.holes?`  thru ${y.thru}`:''}`),
+    '',...superlatives(r).map(s=>`${s.label}: ${s.value} (${s.sub})`)].join('\n')}
+
+/* ---------- actions ---------- */
+function setPath(path,val){const ks=path.split('.');let o=S;for(let k=0;k<ks.length-1;k++)o=o[ks[k]];o[ks[ks.length-1]]=val}
+document.addEventListener('input',e=>{const t=e.target;
+  if(t.dataset.bind){setPath(t.dataset.bind,t.type==='number'&&t.value!==''?+t.value:t.value)}
+  if(t.dataset.act==='d-q'){S.draft.q=t.value;$('#picklist').innerHTML=pickList()}});
+document.addEventListener('change',e=>{const t=e.target;const a=t.dataset.act;
+  if(a==='d-course'){const c=courseById(t.value);S.draft.courseId=t.value;if(c)S.draft.holes=c.holes;render()}
+  if(a==='pick'){const d=S.draft;const id=t.dataset.id;if(t.checked){if(d.picked.length>=MAXP){t.checked=false;toast(`A round holds up to ${MAXP} players.`);return}d.picked.push(id)}else d.picked=d.picked.filter(x=>x!==id);updatePickUi()}});
+function updatePickUi(){const d=S.draft;const pc=$('#pickcount');if(pc)pc.textContent=d.picked.length;const b=document.querySelector('[data-act="start-round"]');if(b){b.disabled=!d.picked.length||S.readOnly;b.textContent=`Tee off with ${d.picked.length||'no'} player${d.picked.length===1?'':'s'}`}}
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='d-add'){e.preventDefault();act('d-addplayer',e.target)}if(e.key==='Enter'&&e.target.id==='r-add'){e.preventDefault();act('round-add',e.target)}});
+document.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(!t||t.tagName==='SELECT'||t.tagName==='INPUT')return;const a=t.dataset.act;if(t.tagName==='A'&&a!=='course-new')return;act(a,t)});
+
+function newPlayerDoc(o){return {name:o.name.trim(),pdga:o.pdga||'',rating:isNum(o.rating)?+o.rating:'',hcp:isNum(o.hcp)?+o.hcp:'',div:(o.div||'').trim(),createdAt:Date.now()}}
+async function act(a,t){
+  const r=curRound();const d=S.draft;
+  switch(a){
+  case 'd-holes':d.holes=+t.dataset.v;return render();
+  case 'd-side':d.side=t.dataset.v;return render();
+  case 'd-net':d.net=t.dataset.v==='1';return render();
+  case 'pick-all':{const q=(d.q||'').toLowerCase();sortedPlayers().filter(p=>!q||(p.name||'').toLowerCase().includes(q)).forEach(p=>{if(!d.picked.includes(p.id)&&d.picked.length<MAXP)d.picked.push(p.id)});$('#picklist').innerHTML=pickList();return updatePickUi()}
+  case 'pick-none':d.picked=[];$('#picklist').innerHTML=pickList();return updatePickUi();
+  case 'd-addplayer':{const nm=(S.addName||'').trim();if(!nm)return toast('Type a name first.');if(d.picked.length>=MAXP)return toast(`A round holds up to ${MAXP} players.`);const id=uid();if(await save('players',id,newPlayerDoc({name:nm}))){d.picked.push(id);S.addName='';render();$('#d-add')?.focus()}return}
+  case 'bulk-add':{const lines=(S.bulk||'').split(/\n/).map(l=>l.split(/[,\t]/).map(s=>s.trim())).filter(l=>l[0]);if(!lines.length)return toast('Paste at least one name.');
+    const room=MAXP-d.picked.length;const use=lines.slice(0,room);
+    await Promise.all(use.map(async l=>{const ex=S.players.find(p=>(p.name||'').toLowerCase()===l[0].toLowerCase());if(ex){if(!d.picked.includes(ex.id))d.picked.push(ex.id);return}const id=uid();if(await save('players',id,newPlayerDoc({name:l[0],rating:l[1],hcp:l[2],pdga:l[3],div:l[4]})))d.picked.push(id)}));
+    S.bulk='';render();return toast(lines.length>room?`Added ${use.length}. The round is full at ${MAXP} players.`:`Added and selected ${use.length} player${use.length>1?'s':''}.`)}
+  case 'start-round':{const c=courseById(d.courseId);if(!c)return toast('Pick a course first.');const lay=layout(c,d.holes,d.side);const size=Math.max(1,Math.min(6,+d.cardSize||4));
+    const players=d.picked.map(id=>S.players.find(p=>p.id===id)).filter(Boolean).slice(0,MAXP).map((p,k)=>({id:p.id,name:p.name,hcp:p.hcp??'',rating:p.rating??'',pdga:p.pdga||'',div:p.div||'',card:Math.floor(k/size)+1}));
+    const id=uid();const doc={name:(d.name||'').trim(),courseId:c.id,courseName:c.name+(c.holes===18&&d.holes===9?(d.side==='back'?' (back 9)':' (front 9)'):''),date:d.date||today(),holes:+d.holes,pars:lay.pars,dists:lay.dists,net:d.net,status:'live',players,scores:{},createdAt:Date.now()};
+    if(await save('rounds',id,doc)){S.draft=null;location.hash='#round-'+id}return}
+  case 'hole':case 'hole-grid':S.hole=Math.max(0,Math.min(r.holes-1,+t.dataset.i));if(a==='hole-grid')S.grid=false;return render();
+  case 'card':S.card=t.dataset.v;return render();
+  case 'div':S.div=t.dataset.v;return render();
+  case 'lb':S.lb=t.dataset.v;return render();
+  case 'toggle-grid':S.grid=!S.grid;return render();
+  case 'inc':case 'dec':case 'tap':{const i=S.hole,par=r.pars[i],pid=t.dataset.p;const cur=+((r.scores?.[pid]||{})['h'+(i+1)])||0;
+    let v=a==='tap'?(cur||par):a==='inc'?(cur?Math.min(15,cur+1):par+1):(cur?(cur>1?cur-1:null):Math.max(1,par-1));
+    if(a==='tap'&&cur)return;setScore(r,pid,i+1,v);return}
+  case 'fill-par':{const i=S.hole;const patch={};r.players.filter(p=>S.card==='all'||p.card==S.card).forEach(p=>{if(!(r.scores?.[p.id]||{})['h'+(i+1)])patch[p.id]={['h'+(i+1)]:r.pars[i]}});if(!Object.keys(patch).length)return toast('Everyone has a score on this hole.');r.scores=merge(r.scores||{},patch);render();return queueUpdate('rounds',r.id,{scores:patch})}
+  case 'round-add':{const nm=(S.addName||'').trim();if(!nm)return toast('Type a name first.');if(r.players.length>=MAXP)return toast(`A round holds up to ${MAXP} players.`);
+    let p=S.players.find(x=>(x.name||'').toLowerCase()===nm.toLowerCase());if(!p){const id=uid();const doc=newPlayerDoc({name:nm});if(!await save('players',id,doc))return;p={id,...doc}}
+    if(r.players.some(x=>x.id===p.id))return toast(`${p.name} is already in this round.`);
+    const cards=r.players.map(x=>x.card);const last=Math.max(1,...cards);const size=Math.max(...Object.values(cards.reduce((m,cd)=>(m[cd]=(m[cd]||0)+1,m),{})),1);const cnt=cards.filter(cd=>cd===last).length;
+    const players=[...r.players,{id:p.id,name:p.name,hcp:p.hcp??'',rating:p.rating??'',pdga:p.pdga||'',div:p.div||'',card:cnt>=Math.max(size,4)?last+1:last}];
+    S.addName='';r.players=players;render();return queueUpdate('rounds',r.id,{players})}
+  case 'finish-ask':S.confirm='finish';return render();
+  case 'finish':S.confirm=null;r.status='final';render();return queueUpdate('rounds',r.id,{status:'final',finishedAt:Date.now()});
+  case 'reopen':r.status='live';render();return queueUpdate('rounds',r.id,{status:'live'});
+  case 'export':return exportData();
+  case 'import-go':Local.data=clone(S.importData.data);Local.save();S.importData=null;S.confirm=null;['courses','players','rounds'].forEach(c=>Local.emit(c));return toast('Backup restored.');
+  case 'cancel-confirm':S.confirm=null;return render();
+  case 'ask':S.confirm=t.dataset.v;return render();
+  case 'del-round':S.confirm=null;return remove('rounds',t.dataset.id);
+  case 'save-png':{if(!shareCanvas)return;const blob=await new Promise(res=>shareCanvas.toBlob(res,'image/png'));const fn=`${(r.name||r.courseName).replace(/[^\w\- ]+/g,'').trim().replace(/\s+/g,'-').toLowerCase()||'scorecard'}-${r.date}.png`;
+    const file=new File([blob],fn,{type:'image/png'});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:r.name||r.courseName,text:resultsText(r)})}catch(e){}return}
+    downloadBlob(blob,fn);return}
+  case 'copy-results':{const txt=resultsText(r);try{await navigator.clipboard.writeText(txt);toast('Results copied.')}catch(e){const ta=document.createElement('textarea');ta.value=txt;t.closest('.stack').appendChild(ta);ta.select();toast('Select-all and copy the text below.')}return}
+  case 'course-new':S.courseDraft={id:null,name:'',location:'',holes:18,pars:Array(18).fill(3),dists:Array(18).fill(''),notes:''};if(S.view!=='courses')location.hash='#courses';else render();return;
+  case 'course-edit':{const c=courseById(t.dataset.id);const p=c.pars.slice();const ds=(c.dists||[]).slice();while(p.length<18)p.push(3);while(ds.length<18)ds.push('');S.courseDraft={id:c.id,name:c.name,location:c.location||'',holes:c.holes,pars:p,dists:ds.map(v=>v??''),notes:c.notes||'',createdAt:c.createdAt};return render()}
+  case 'c-holes':S.courseDraft.holes=+t.dataset.v;return render();
+  case 'c-par':{const k=+t.dataset.i;S.courseDraft.pars[k]=Math.max(2,Math.min(7,S.courseDraft.pars[k]+(+t.dataset.d)));return render()}
+  case 'course-save':{const c=S.courseDraft;if(!c.name.trim())return toast('Give the course a name.');const id=c.id||uid();
+    const doc={name:c.name.trim(),location:(c.location||'').trim(),holes:c.holes,pars:c.pars.slice(0,c.holes),dists:c.dists.slice(0,c.holes).map(v=>isNum(v)?+v:null),notes:(c.notes||'').trim(),createdAt:c.createdAt||Date.now()};
+    if(await save('courses',id,doc)){S.courseDraft=null;render();toast('Course saved.')}return}
+  case 'course-cancel':S.courseDraft=null;return render();
+  case 'course-del':S.confirm=null;return remove('courses',t.dataset.id);
+  case 'player-new':S.newPlayer={name:'',pdga:'',rating:'',div:'',hcp:''};S.playerEdit=null;render();return $('#pe-name')?.focus();
+  case 'player-edit':{const p=S.players.find(x=>x.id===t.dataset.id);S.playerEdit={...p};S.newPlayer=null;return render()}
+  case 'player-cancel':S.playerEdit=null;S.newPlayer=null;return render();
+  case 'player-save':{const src=t.dataset.v==='new'?S.newPlayer:S.playerEdit;if(!(src.name||'').trim())return toast('Enter a name.');const id=src.id||uid();const doc={...newPlayerDoc(src),createdAt:src.createdAt||Date.now()};
+    if(await save('players',id,doc)){S.playerEdit=null;S.newPlayer=null;render()}return}
+  case 'player-del':S.confirm=null;return remove('players',t.dataset.id);
+  case 'auto-one':{const p=S.players.find(x=>x.id===t.dataset.id);const h=autoHcp(p);if(h==null)return;queueUpdate('players',p.id,{hcp:h});return}
+  case 'auto-all':{let n=0;S.players.forEach(p=>{const h=autoHcp(p);if(h!=null&&+p.hcp!==h){queueUpdate('players',p.id,{hcp:h});n++}});return toast(n?`Updated ${n} handicap${n>1?'s':''}.`:'No finished rounds to calculate from yet.')}
+  }}
+function setScore(r,pid,hole,v){r.scores=merge(r.scores||{},{[pid]:{['h'+hole]:v}});render();queueUpdate('rounds',r.id,{scores:{[pid]:{['h'+hole]:v}}})}
+
+/* ---------- boot ---------- */
+function downloadBlob(blob,fn){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fn;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000)}
+function backupPanel(){
+  return `<section class="panel stack" style="margin-top:26px"><h3>Back up your scorebook</h3>
+  <p class="note">Everything lives on this phone only. Save a backup file now and then (and before switching phones), then restore it here or on another device.</p>
+  <div class="row"><button class="btn" data-act="export">Save backup file</button><label class="btn" for="importfile" style="cursor:pointer">Restore from file</label><input type="file" id="importfile" accept=".json,application/json" hidden></div>
+  ${S.confirm==='import'?`<div class="confirm"><span>Replace everything on this phone with the backup (${S.importData.counts})?</span><button class="btn danger" data-act="import-go">Replace and restore</button><button class="btn ghost" data-act="cancel-confirm">Cancel</button></div>`:''}</section>`}
+async function exportData(){
+  const fn=`chainline-backup-${today()}.json`;const blob=new Blob([JSON.stringify({app:'chainline',version:1,exportedAt:new Date().toISOString(),data:Local.data},null,1)],{type:'application/json'});
+  const file=new File([blob],fn,{type:'application/json'});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:'Chainline backup'});return}catch(e){if(e&&e.name==='AbortError')return}}
+  downloadBlob(blob,fn)}
+document.addEventListener('change',async e=>{if(e.target.id!=='importfile')return;const f=e.target.files[0];e.target.value='';if(!f)return;
+  try{const j=JSON.parse(await f.text());const d=j.data||j;if(!d||typeof d!=='object'||!d.courses||!d.players||!d.rounds)throw 0;
+    const n=k=>Object.keys(d[k]).length;S.importData={data:{courses:d.courses,players:d.players,rounds:d.rounds},counts:`${n('courses')} courses, ${n('players')} players, ${n('rounds')} rounds`};S.confirm='import';render()}
+  catch(err){toast('That file isn’t a Chainline backup.')}});
+async function boot(){
+  route();
+  Local.load();B=Local;S.mode='local';
+  try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
+  ['courses','players','rounds'].forEach(c=>B.watch(c,list=>{S[c]=withPending(c,list);scheduleRender()}));
+  render();
+  if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{})}
+boot();
+</script>
+</body></html>

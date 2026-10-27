@@ -1,0 +1,16 @@
+{
+  "name": "Chainline Scorebook",
+  "short_name": "Scorebook",
+  "description": "Disc golf scorekeeping: 9 or 18 baskets, up to 100 players, handicaps, course log and share cards.",
+  "start_url": "./#play",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#EEF2EC",
+  "theme_color": "#133224",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}
